@@ -1,0 +1,42 @@
+import math
+import numpy as np
+import s3fs
+import pandas as pd
+from dask.distributed import Client
+import dask.dataframe as dd
+import dask.bag as db
+import json
+import urllib
+import dask.bag as db
+from dask.distributed import Client, progress
+
+if __name__ == "__main__":
+    client = Client(threads_per_worker=1,
+                n_workers=4,
+                memory_limit='2GB')
+    #print(client)
+
+
+    #print((db.read_text('https://archive.analytics.mybinder.org/events-2018-11-03.jsonl').take(3)))
+    #print(db.read_text('https://archive.analytics.mybinder.org/index.jsonl').map(json.loads).compute())
+    filenames = (db.read_text('https://archive.analytics.mybinder.org/index.jsonl')
+               .map(json.loads)
+               .pluck('name')
+               .compute())
+
+    filenames = ['https://archive.analytics.mybinder.org/' + fn for fn in filenames]
+    #print(filenames[:5])
+    events = db.read_text(filenames).map(json.loads)
+    #print(events.take(2))
+    #print(events.pluck('spec').frequencies(sort=True).take(20))
+    df = events.to_dataframe()
+    #print(df.head())
+    df = df.persist()
+    #print(df.provider.value_counts().compute())
+    Github = (df[df.provider == 'Git']
+    .spec
+    .apply(urllib.parse.unquote, meta=('spec', object))
+    .value_counts()
+    .to_frame()
+    .compute())
+    print(Github)
